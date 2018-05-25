@@ -9,24 +9,19 @@ class PathError(Exception):
         return repr(self.msg) + ": file is not existing!"
 
 
-def read_and_decode(tfr_queue, img_size=640):
+def read_and_decode(tfr_queue, img_size=256):
     tfr_reader = tf.TFRecordReader()
     _, serialized_example = tfr_reader.read(tfr_queue)
 
     features = tf.parse_single_example(serialized_example, features={
-        "image": tf.FixedLenFeature([], tf.string),
-        "height": tf.FixedLenFeature([], tf.int64),
-        "width": tf.FixedLenFeature([], tf.int64),
+        "image": tf.FixedLenFeature([], tf.string)
         })
 
-
-    img_width = tf.cast(features["width"], tf.int32)
-    img_height = tf.cast(features["height"], tf.int32)
 
     img = tf.decode_raw(features["image"], tf.uint8)
     img = tf.reshape(img, [img_size, img_size, 3])
 
-    return [img], [img_width, img_height]
+    return [img]
 
 
 def read_batch(tfr_paths, batch_size=1, is_shuffle=True, num_epochs=None):
@@ -40,7 +35,7 @@ def read_batch(tfr_paths, batch_size=1, is_shuffle=True, num_epochs=None):
 
 
         if is_shuffle:
-            batch_img, batch_img_size = tf.train.shuffle_batch_join(data_list,
+            batch_img = tf.train.shuffle_batch_join(data_list,
                                                      batch_size=batch_size,
                                                      capacity=400,
                                                      min_after_dequeue=80,
@@ -48,10 +43,10 @@ def read_batch(tfr_paths, batch_size=1, is_shuffle=True, num_epochs=None):
                                                      name='img_data_reader')
 
         else:
-            batch_img, batch_img_size = tf.train.batch_join(data_list,
+            batch_img = tf.train.batch_join(data_list,
                                              batch_size=batch_size,
                                              capacity=300,
                                              enqueue_many=False,
                                              name='img_data_reader')
 
-    return batch_img, batch_img_size
+    return batch_img

@@ -4,6 +4,7 @@ import sys
 
 # use the vgg16 contained by tensorflow slim
 import tensorflow.contrib.slim.nets as nets
+import tensorflow.contrib.slim as slim
 
 sys.path.append("../")
 
@@ -11,6 +12,11 @@ sys.path.append("../")
 class StyleTransferModel():
     def __init__(self, batch_size):
         self.batch_size = batch_size
+        self.content_layers = ["vgg_16/conv3/conv3_3"]
+        self.style_layers = ["vgg_16/conv1/conv1_2", "vgg_16/conv2/conv2_2", "vgg_16/conv3/conv3_3", "vgg_16/conv4/conv4_3"]
+        self.style_weight = 220.0
+        self.content_weight = 1.0
+
 
     # Helper function to build convolution layer
     def _helper_conv2d(self, inputs, filter_num, kernel_size, strides, name, with_relu = False):
@@ -55,7 +61,16 @@ class StyleTransferModel():
 
     # for style loss compute
     def _helper_gram(self, inputs):
-        
+        batch_shape = tf.shape(inputs)
+        batch_size = batch_shape[0]
+        height = batch_shape[1]
+        width = batch_shape[2]
+        feature_num = batch_shape[3]
+
+        features = tf.reshape(inputs, [batch_size, -1, feature_num])
+        grams = tf.matmul(features, features, transpose_a=True) / tf.to_float(width * height * feature_num)
+
+        return grams
 
     def build_generator(self, images, training):
         images = tf.pad(images, [[0, 0], [10, 10], [10, 10], [0, 0]], model="REFLECT")
@@ -85,4 +100,49 @@ class StyleTransferModel():
         logits, endpoints_dict = nets.vgg.vgg_16(inputs, spatial_squeeze=False)
         return logits, endpoints_dict
 
+    def build_content_loss(self, endpoints_mixed, content_layer_names):
+        loss = 0
+        for layer in contents:
+            A, B, _ = tf.split(endpoints_mixed[layer], 3, 0)
+            size = tf.size(A)
+            loss += tf.nn.l2_loss(A - B) * 2 / tf.to_float(size)
 
+        return loss
+
+    def build_style_loss(self, endpoints_mixed, style_layer_names):
+        loss = 0
+        for layer in style_layer_names:
+            _, B, C = tf.split(endpoints_mixed[layer], 3, 0)
+            size = tf.size(B)
+            loss += tf.nn.l2_loss(gram(B) - gram(C)) * 2 / tf.to_float(size)
+
+        return loss
+
+
+    def build_loss(self, images, style_images, lr):
+        self.style_image = style_image
+        self.inputs = images
+
+        self.generated_images = self.build_generator(self.inputs, True)
+        self.squeezed_generated_image = tf.image.encode_jpeg(tf.cast(tf.squeeze(generated_images, [0]), tf.uint8))
+
+        _, endpoints_mixed = self.build_lossnet(tf.concat([self.inputs, generated_images, style_images], axis=0))
+
+        self.content_loss = self.content_weight * self.build_content_loss(endpoints_mixed, self.content_layers)
+        self.style_loss = self.style_weight * self.build_style_loss(endpoints_mixed, self.style_layers)
+        self.loss = self.content_loss + self.style_loss
+
+        tf.summary.scalar("losses/content_loss", self.content_loss)
+        tf.summary.scalar("losses/style_loss", self.style_loss)
+        tf.summary.scalar("losses/total_loss", self.loss)
+        tf.summary.image("images/generated", self.squeezed_generated_image)
+        tf.summary.image("images/original", self.inputs)
+        self.summary = tf.summary.merge_all()
+
+        variable_for_training = slim.get_variables_to_restore(include=["generator"])
+        gradients = tf.gradients(self.loss, variable_for_training)
+
+        grad_and_var = list(zip(gradients, variable_for_training))
+
+        optimizer = tf.train.AdamOptimizer(lr)
+        self.train_op = optimizer.apply_gradients(grads_and_vars=grad_and_var)

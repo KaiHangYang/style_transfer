@@ -1,0 +1,61 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+import numpy as np
+import cv2
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+
+sys.path.append("../")
+
+from utils import tfrecord_reader
+from networks import network_structure as mynet
+
+################################# Parameters for training ################################
+learning_rate = 0.0002
+batch_size = 4
+input_img_size = 256
+input_img_channels = 3
+
+restore_prev_trained_models = False
+
+log_dir = "../logs/"
+vgg16_checkpoint_path = "../models/vgg16/vgg16.checkpoint"
+generator_checkpoint_path = "../models/generator/trained-0"
+dir_to_save_models = "../models/generator/"
+
+dataset_dir = "/home/kaihang/DataSet/style_transfer/"
+
+##########################################################################################
+if not os.path.isdir(dataset_dir):
+    print("DataSet directory is not existing!")
+    quit()
+tfrecord_list = [os.path.join(dataset_dir, i) for i in os.listdir(dataset_dir)]
+
+if __name__ == "__main__":
+    # use the default graph
+    with tf.Graph().as_default():
+
+        batch_imgs = tfrecord_reader.read_batch(tfrecord_list, batch_size = batch_size, is_shuffle=True, num_epochs=None)
+        inputs_images = tf.placeholder(dtype=tf.float32,
+                shape=[None, input_img_size, input_img_size, input_img_channels],
+                name="input_images")
+        inputs_styles = tf.placeholder(dtype=tf.float32,
+                shape=[None, input_img_size, input_img_size, input_img_channels],
+                name="input_styles")
+
+        model = mynet.StyleTransferModel(batch_size)
+        model.build_loss(inputs_images, inputs_styles, learning_rate)
+
+        with tf.Session() as sess:
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord = coord)
+
+            training_writer = tf.summary.FileWriter(logdir=log_dir, graph=sess.graph, filename_suffix="test")
+
+            vgg16_restorer = tf.train.Saver(slim.get_variables_to_restore(include=["vgg_16"]))
+            generator_saver = tf.train.Saver(slim.get_variables_to_restore(include=["generator"]))
+
+            
+
