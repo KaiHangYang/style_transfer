@@ -8,7 +8,6 @@ import tensorflow.contrib.slim as slim
 
 sys.path.append("../")
 
-
 class StyleTransferModel():
     def __init__(self, batch_size):
         self.batch_size = batch_size
@@ -48,7 +47,7 @@ class StyleTransferModel():
             return residual_block
 
     def _helper_resize_conv2d(self, inputs, filter_num, kernel_size, strides, name, is_training):
-        with tf.variable_scope("ResizeConv2d_" + name)
+        with tf.variable_scope("ResizeConv2d_" + name):
             input_width = inputs.get_shape()[2].value if is_training else tf.shape(inputs)[2]
             input_height = inputs.get_shape()[1].value if is_training else tf.shape(inputs)[1]
 
@@ -73,26 +72,26 @@ class StyleTransferModel():
         return grams
 
     def build_generator(self, images, training):
-        images = tf.pad(images, [[0, 0], [10, 10], [10, 10], [0, 0]], model="REFLECT")
+        images = tf.pad(images, [[0, 0], [10, 10], [10, 10], [0, 0]], mode="REFLECT")
         with tf.variable_scope("generator"):
-            conv1 = tf.nn.relu(self.__helper_instance_norm(self.__helper_conv2d(images, 32, 9, 1, "conv1")))
-            conv2 = tf.nn.relu(self.__helper_instance_norm(self.__helper_conv2d(conv1, 64, 3, 2, "conv2")))
-            conv3 = tf.nn.relu(self.__helper_instance_norm(self.__helper_conv2d(conv2, 128, 3, 2, "conv2")))
+            conv1 = tf.nn.relu(self._helper_instance_norm(self._helper_conv2d(images, 32, 9, 1, "conv1"), "conv1"))
+            conv2 = tf.nn.relu(self._helper_instance_norm(self._helper_conv2d(conv1, 64, 3, 2, "conv2"), "conv2"))
+            conv3 = tf.nn.relu(self._helper_instance_norm(self._helper_conv2d(conv2, 128, 3, 2, "conv3"), "conv3"))
             residual1 = self._helper_residual_block(conv3, 128, 3, 1, "res1")
             residual2 = self._helper_residual_block(residual1, 128, 3, 1, "res2")
             residual3 = self._helper_residual_block(residual2, 128, 3, 1, "res3")
             residual4 = self._helper_residual_block(residual3, 128, 3, 1, "res4")
             residual5 = self._helper_residual_block(residual4, 128, 3, 1, "res5")
 
-            resize_conv2d1 = tf.nn.relu(self._helper_instance_norm(self._helper_resize_conv2d(residual5, 64, 3, 1, "resize_conv1", is_training)))
-            resize_conv2d2 = tf.nn.relu(self._helper_instance_norm(self._helper_resize_conv2d(resize_conv2d1, 32, 3, 1, "resize_conv2", is_training)))
-            result_conv2d = tf.nn.tanh(self._helper_instance_norm(self._helper_conv2d(resize_conv2d2, 3, 9, 1, "result_conv")))
+            resize_conv2d1 = tf.nn.relu(self._helper_instance_norm(self._helper_resize_conv2d(residual5, 64, 3, 1, "resize_conv1", training), "resize_conv1"))
+            resize_conv2d2 = tf.nn.relu(self._helper_instance_norm(self._helper_resize_conv2d(resize_conv2d1, 32, 3, 1, "resize_conv2", training), "resize_conv2"))
+            result_conv2d = tf.nn.tanh(self._helper_instance_norm(self._helper_conv2d(resize_conv2d2, 3, 9, 1, "result_conv"), "resize_conv3"))
 
             result = (result_conv2d + 1.0) * 127.5
 
             height = tf.shape(result)[1]
             width = tf.shape(result)[2]
-            result = tf.slice(result, [0, 10, 10, 0], [-1, height - 10, width - 10, -1])
+            result = tf.slice(result, [0, 10, 10, 0], [-1, height - 20, width - 20, -1])
 
             return result
 
@@ -102,7 +101,7 @@ class StyleTransferModel():
 
     def build_content_loss(self, endpoints_mixed, content_layer_names):
         loss = 0
-        for layer in contents:
+        for layer in content_layer_names:
             A, B, _ = tf.split(endpoints_mixed[layer], 3, 0)
             size = tf.size(A)
             loss += tf.nn.l2_loss(A - B) * 2 / tf.to_float(size)
@@ -114,19 +113,19 @@ class StyleTransferModel():
         for layer in style_layer_names:
             _, B, C = tf.split(endpoints_mixed[layer], 3, 0)
             size = tf.size(B)
-            loss += tf.nn.l2_loss(gram(B) - gram(C)) * 2 / tf.to_float(size)
+            loss += tf.nn.l2_loss(self._helper_gram(B) - self._helper_gram(C)) * 2 / tf.to_float(size)
 
         return loss
 
 
     def build_loss(self, images, style_images, lr):
-        self.style_image = style_image
+        self.style_image = style_images
         self.inputs = images
 
         self.generated_images = self.build_generator(self.inputs, True)
-        self.squeezed_generated_image = tf.image.encode_jpeg(tf.cast(tf.squeeze(generated_images, [0]), tf.uint8))
+        self.squeezed_generated_image = tf.image.encode_jpeg(tf.cast(tf.squeeze(self.generated_images, [0]), tf.uint8))
 
-        _, endpoints_mixed = self.build_lossnet(tf.concat([self.inputs, generated_images, style_images], axis=0))
+        _, endpoints_mixed = self.build_lossnet(tf.concat([self.inputs, self.generated_images, self.style_image], axis=0))
 
         self.content_loss = self.content_weight * self.build_content_loss(endpoints_mixed, self.content_layers)
         self.style_loss = self.style_weight * self.build_style_loss(endpoints_mixed, self.style_layers)
@@ -135,7 +134,7 @@ class StyleTransferModel():
         tf.summary.scalar("losses/content_loss", self.content_loss)
         tf.summary.scalar("losses/style_loss", self.style_loss)
         tf.summary.scalar("losses/total_loss", self.loss)
-        tf.summary.image("images/generated", self.squeezed_generated_image)
+        tf.summary.image("images/generated", self.generated_images)
         tf.summary.image("images/original", self.inputs)
         self.summary = tf.summary.merge_all()
 

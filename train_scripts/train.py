@@ -1,6 +1,7 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+import sys
 
 import numpy as np
 import cv2
@@ -22,7 +23,7 @@ train_iteration = 160000 # two epoches
 restore_prev_trained_models = False
 
 log_dir = "../logs/"
-vgg16_checkpoint_path = "../models/vgg16/vgg16.checkpoint"
+vgg16_checkpoint_path = "../models/vgg16/vgg_16.ckpt"
 generator_checkpoint_path = "../models/generator/trained-0"
 dir_to_save_models = "../models/generator/"
 style_image_path = "../style_images/the_scream.jpg"
@@ -75,7 +76,7 @@ if __name__ == "__main__":
 
             # restore generator
             if restore_prev_trained_models:
-                if not os.path.isfile(generator_checkpoint_path + ".data-0-") # TODO waiting to change
+                if not os.path.isfile(generator_checkpoint_path + ".data-0-"): # TODO waiting to change
                     print("Previously trained model is not existing!")
                     quit()
                 else:
@@ -86,8 +87,9 @@ if __name__ == "__main__":
                 print("Style image is not existing!")
                 quit()
             else:
-                style_image = cv2.imread("style_image_path")
-                batch_styles_np = np.zeros([batch_size, style_image.shape[0], style_image.shape[1], style_image.shape[0]], dtype=np.float32)
+                style_image = cv2.imread(style_image_path)
+                style_image = cv2.resize(style_image, (input_img_size , input_img_size))
+                batch_styles_np = np.zeros([batch_size, style_image.shape[0], style_image.shape[1], style_image.shape[2]], dtype=np.float32)
                 for img_num in range(batch_size):
                     batch_styles_np[img_num] = style_image.copy().astype(np.float32)
 
@@ -102,9 +104,9 @@ if __name__ == "__main__":
                 model.style_loss,
                 model.summary
                 ],
-                feed_dict= {
-                    input_images = batch_images_np,
-                    input_styles = batch_styles_np
+                feed_dict = {
+                    input_images: batch_images_np,
+                    input_styles: batch_styles_np
                 })
 
                 print("######################### Iterations %d ##########################\n" % global_steps)
@@ -114,3 +116,5 @@ if __name__ == "__main__":
 
                 if global_steps % 5000 == 0:
                     generator_saver.save(sess, dir_to_save_models, global_step = global_steps)
+
+                global_steps += 1
