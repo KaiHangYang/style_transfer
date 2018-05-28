@@ -89,7 +89,7 @@ if __name__ == "__main__":
                 quit()
             else:
                 style_image = cv2.imread(style_image_path)
-                if style_image.shape[0] < input_img_size or style_image.shape[1] < input_img_size:
+                if (style_image.shape[0] < input_img_size or style_image.shape[1] < input_img_size) or (style_image.shape[0] > input_img_size and style_image.shape[1] > input_img_size):
                     min_size = min(style_image.shape[0], style_image.shape[1])
                     img_scale = 1.0 * input_img_size / min_size
                     style_image = cv2.resize(style_image, (int(img_scale * style_image.shape[1]), int(img_scale * style_image.shape[0])))
