@@ -89,7 +89,16 @@ if __name__ == "__main__":
                 quit()
             else:
                 style_image = cv2.imread(style_image_path)
-                style_image = cv2.resize(style_image, (input_img_size , input_img_size))
+                if style_image.shape[0] < input_img_size or style_image.shape[1] < input_img_size:
+                    min_size = min(style_image.shape[0], style_image.shape[1])
+                    img_scale = 1.0 * input_img_size / min_size
+                    style_image = cv2.resize(style_image, (int(img_scale * style_image.shape[1]), int(img_scale * style_image.shape[0])))
+
+                pad_width = int((style_image.shape[1] - input_img_size) / 2.0)
+                pad_height = int((style_image.shape[0] - input_img_size) / 2.0)
+
+                style_image = style_image[pad_height:pad_height+input_img_size, pad_width:pad_width+input_img_size]
+
                 batch_styles_np = np.zeros([batch_size, style_image.shape[0], style_image.shape[1], style_image.shape[2]], dtype=np.float32)
                 for img_num in range(batch_size):
                     batch_styles_np[img_num] = style_image.copy().astype(np.float32)

@@ -136,8 +136,8 @@ class StyleTransferModel():
         tf.summary.scalar("losses/content_loss", self.content_loss)
         tf.summary.scalar("losses/style_loss", self.style_loss)
         tf.summary.scalar("losses/total_loss", self.loss)
-        tf.summary.image("images/generated", self.generated_images)
-        tf.summary.image("images/original", self.inputs)
+        # tf.summary.image("images/generated", self.generated_images)
+        # tf.summary.image("images/original", self.inputs)
         self.summary = tf.summary.merge_all()
 
         variable_for_training = slim.get_variables_to_restore(include=["generator"])

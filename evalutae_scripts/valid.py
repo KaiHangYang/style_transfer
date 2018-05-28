@@ -18,7 +18,7 @@ input_img_channels = 3
 batch_size = 1
 restore_prev_trained_models = True
 
-generator_checkpoint_path = "../models/generators/trained_model-20000"
+generator_checkpoint_path = "../models/generators/trained_model-wave-15000"
 
 # Mean pixel for all images in the set. It is provided by https://github.com/lengstrom/fast-style-transfer
 dataset_means = np.array([123.68, 116.779, 103.939])
