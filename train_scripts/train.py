@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import sys
 
 import numpy as np
@@ -25,7 +25,7 @@ restore_prev_trained_models = False
 log_dir = "../logs/"
 vgg16_checkpoint_path = "../models/vgg16/vgg_16.ckpt"
 generator_checkpoint_path = "../models/generator/trained-0"
-dir_to_save_models = "../models/generator/"
+path_to_save_models = "../models/generator/trained_model"
 style_image_path = "../style_images/the_scream.jpg"
 
 dataset_dir = "/home/kaihang/DataSet/style_transfer/"
@@ -58,10 +58,10 @@ if __name__ == "__main__":
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord = coord)
 
-            training_writer = tf.summary.FileWriter(logdir=log_dir, graph=sess.graph, filename_suffix="test")
+            training_writer = tf.summary.FileWriter(logdir=log_dir, graph=sess.graph, filename_suffix="-train")
 
             vgg16_restorer = tf.train.Saver(slim.get_variables_to_restore(include=["vgg_16"]))
-            generator_saver = tf.train.Saver(slim.get_variables_to_restore(include=["generator"]))
+            generator_saver = tf.train.Saver(slim.get_variables_to_restore(include=["generator"]), max_to_keep=20)
 
             # initialize the parameters first
             sess.run(tf.global_variables_initializer())
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
             global_steps = 0
 
-            while True:
+            while global_steps < train_iteration:
                 batch_images_np = sess.run(batch_imgs)
                 _, batch_loss_np, batch_content_loss_np, batch_style_loss_np, batch_summary = sess.run([
                 model.train_op,
@@ -113,8 +113,11 @@ if __name__ == "__main__":
                 print("Total loss: %0.8f\n" % batch_loss_np)
                 print("Content loss: %0.8f\n" % batch_content_loss_np)
                 print("Style loss: %0.8f\n" % batch_style_loss_np)
+                training_writer.add_summary(batch_summary, global_steps)
 
                 if global_steps % 5000 == 0:
-                    generator_saver.save(sess, dir_to_save_models, global_step = global_steps)
+                    generator_saver.save(sess, save_path=path_to_save_models, global_step = global_steps)
 
                 global_steps += 1
+            coord.request_stop()
+            coord.join(threads)
