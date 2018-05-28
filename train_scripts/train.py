@@ -21,12 +21,13 @@ input_img_channels = 3
 train_iteration = 160000 # two epoches
 
 restore_prev_trained_models = False
+style_image_name = "the_scream"
 
 log_dir = "../logs/"
 vgg16_checkpoint_path = "../models/vgg16/vgg_16.ckpt"
 generator_checkpoint_path = "../models/generator/trained-0"
-path_to_save_models = "../models/generator/trained_model"
-style_image_path = "../style_images/the_scream.jpg"
+path_to_save_models = "../models/generator/trained_model-%s" % style_image_name
+style_image_path = "../style_images/%s.jpg" % style_image_name
 
 dataset_dir = "/home/kaihang/DataSet/style_transfer/"
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
                     print("Previously trained model is not existing!")
                     quit()
                 else:
-                    generator_saver.restore(generator_checkpoint_path)
+                    generator_saver.restore(sess, generator_checkpoint_path)
 
             # Read the style image
             if not os.path.isfile(style_image_path):

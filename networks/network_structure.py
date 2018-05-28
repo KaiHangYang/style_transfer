@@ -117,6 +117,8 @@ class StyleTransferModel():
 
         return loss
 
+    def build_forward_network(self, images):
+        self.generated_images = self.build_generator(images, False)
 
     def build_loss(self, images, style_images, lr):
         self.style_image = style_images
