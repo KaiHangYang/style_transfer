@@ -80,11 +80,15 @@ if __name__ == "__main__":
 
         if len(input_image_list) < test_img_num:
             test_img_num = len(input_image_list)
-        selected_arr = np.random.shuffle(np.arange(0, len(input_image_list), 1))[0:test_img_num]
+        selected_arr = np.arange(0, len(input_image_list), 1)
+        np.random.shuffle(selected_arr)
+        selected_arr = selected_arr[0:test_img_num]
+
         input_image_list_raw = input_image_list[selected_arr]
 
         input_image_list = [os.path.join(input_dir, i) for i in input_image_list_raw]
         output_image_list = [os.path.join(output_dir, "styled_" + i) for i in input_image_list_raw]
+        output_raw_image_list = [os.path.join(output_dir, "origin_" + i) for i in input_image_list_raw]
 
     elif used_mode == 2:
         if args.input_video is None or not os.path.isfile(args.input_video):
@@ -156,12 +160,15 @@ if __name__ == "__main__":
                 cur_img = cur_img[np.newaxis, :]
                 generated_images = sess.run(model.generated_images, feed_dict={input_images: cur_img})
 
-                cv2.imshow("raw_images", cur_img[0])
-                cv2.imshow("styled_images", generated_images[0].astype(np.uint8))
-                key = cv2.waitKey(4)
+                if used_mode == 1 or used_mode == 2:
+                    cv2.imshow("raw_images", cur_img[0])
+                    cv2.imshow("styled_images", generated_images[0].astype(np.uint8))
+                    key = cv2.waitKey(4)
 
                 if used_mode == 0:
                     cv2.imwrite(output_image_list[used_index], generated_images[0].astype(np.uint8))
+                    cv2.imwrite(output_raw_image_list[used_index], cur_img[0])
+                    key = ""
 
                 if key == ord('q'):
                     break
